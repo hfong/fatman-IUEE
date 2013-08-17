@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title> Fat Man Feeder! </title>
+	<script type="text/javascript" src="FrameTimer.js"></script>
+    <script type="text/javascript" src="SpriteSheet.js"></script>
+    <script type="text/javascript" src="Animation.js"></script>
+	<script type="text/javascript" src="Collisions.js"></script>
+	<meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+    <script src="js/jquery.js" type="text/javascript"></script>
+    <script src="js/jquery.audiotag.js" type="text/javascript"></script>
+	<style>
+	canvas
+	{
+		position:absolute;
+	}
+	</style>
+</head>
+
+<body>
+<canvas id="background" width="800" height="600" style="background: black;z-index: 0;"></canvas>
+<canvas id="fruitLayer" width="800" height="600" style="z-index: 1;"></canvas>
+<canvas id="fatmanLayer" width="800" height="600" style="z-index: 1;"></canvas>
+<canvas id="score" width="800" height="600" style="z-index: 1;"></canvas>
+<canvas id="meter" width="800" height="600" style="z-index: 2;"></canvas>
+
+<div class = "footer">
+	<a href="#" class="play buttons">play</a>
+	<a href="#" class="pause buttons">pause</a>
+	<a href="#" class="volumestop buttons">Volume to 0</a>
+	<a href="#" class="volumeMax buttons">Volume to max</a>
+</div>
+
+<style media="screen" type="text/css">
+
+	div.footer 
+	{
+		position: absolute;
+  		top:610px;
+ 		left:10px;
+	}
+</style>
+
+This text is displayed if your browser does not support HTML5 Canvas.
+</canvas>
+<script>
+	//var burp = new Audio("burp.wav"); // buffers automatically when created
+	//var scream = new Audio("WilhelmScream.wav");
+	var eat = new Audio("eating.wav");
+	var pbjTime = new Audio("PBJ.wav");
+	
+	var canvasWidth = 800;
+	var canvasHeight = 600;
+	var animationInterval; 
+	var canvasBackground = document.getElementById("background");
+	//document.addEventListener("keydown",keypress);
+	var contextBackground = canvasBackground.getContext('2d');
+	//contextBackground.fillStyle = "white";
+	//contextBackground.fillRect(0,0,canvasWidth,canvasHeight);
+	
+	var canvasFruit = document.getElementById("fruitLayer");
+	var contextFruit = canvasFruit.getContext('2d');
+	
+	var canvasFatMan = document.getElementById("fatmanLayer");
+	var contextFatMan = canvasFatMan.getContext('2d');
+
+	var canvasScore = document.getElementById("score");
+	var contextScore = canvasScore.getContext('2d');
+	
+	var canvasMeter = document.getElementById("meter");
+	var contextMeter = canvasMeter.getContext("2d");
+	
+	//contextFruit.fillRect(0, 0, canvasWidth, canvasHeight);
+
+	var spawnNumber;
+	var fruitNumber;
+	var spawnInterval;
+	var fruitInterval;
+	var drawInterval;
+	var randomNum;
+	
+	var backgroundImage1 = new Image();
+	
+	var canvasWidth = canvasBackground.width;
+	var canvasHeight = canvasBackground.height;
+	var cycleCount = 0;
+	
+	backgroundImage1.src = "background.png";
+	var offSetX = 0;
+	var backInterval;
+	
+	backgroundImage1.addEventListener("load",init,false);
+	
+	//creates the class for FatMan
+	function FatMan(startX,startY,inputSprite)
+	{	
+		this.velocity = 0;
+		this.x = startX;
+		this.y = startY;
+		this.width = 99;
+		this.height = 148;
+		this.originalHeight = startY;
+		this.sprite=inputSprite;
+		this.eating = false;
+		this.score = 0;
+		this.form = 0;
+		this.bananaCombo = 0;
+	}
+	
+	function Spawn(x,y)
+	{
+		this.x = x;
+		this.y = y;
+	}
+	
+	function Fruit(x,y,image)
+	{
+		this.x = x;
+		this.y = y;
+		this.icon = new Image();
+		this.icon.src = image;
+		this.width = this.icon.width;
+		this.height = this.icon.height;
+		this.speed = 2;
+		this.visable = true;
+		this.point = 0;
+		this.banana = false;
+	}
+	//creates the array of stuff FatMan can encounter
+	var fruitList = [];
+	var spawns = [];
+	var fruits = ["fries.png","milkshake.png","doughnut.png","cake.png","banana.png","carrot.png","broccoli.png","strawberry.png"];
+	var numOfFruits = 0;
+	var fruitImage = new Image();
+	//hardset x,y positions for initialization of FatMan
+	var loadX = 50
+	var loadY = 350;
+	var barWidth = 0;
+	var startX = 175;
+	var startY = 25;
+	
+	//loading picture of FatMan
+	var fatman = new Image();
+	fatman.src = 'fatman2.png';
+	fatman.addEventListener("load",init,false);
+		
+	//creates the FatMan sprite with the initial x,y position
+	var fatmanAvatar = new FatMan(loadX,loadY,fatman);
+	
+	//this function now has purpose, Jacob!
+	function init() 
+	{
+		contextMeter.fillStyle = "grey";
+		contextMeter.rect(175,25,0,20);
+		contextMeter.fill();
+		
+		backInterval = setInterval(drawBackground,10);
+		//draw background
+		setSpawns();
+		fruitInterval = setInterval(drawAllFruit,10);
+		drawInterval = setInterval(updateFruit,10);
+		startSpawning();
+		document.addEventListener("keydown",keypress);
+		animateMid();
+		contextScore.clearRect(0,0,canvasWidth,canvasHeight);
+		contextScore.font = "30pt Arial";
+		contextScore.fillStyle = "Black";
+		contextScore.fillText(fatmanAvatar.score,15,50);
+	    //calling the animation here so that each time fatman is called, he will animate
+		//animate(); 
+		
+	}
+	
+	function clearMeterContext()
+	{
+		contextMeter.clearRect(0,0,canvasWidth,canvasHeight);
+	}
+	function drawBackground()
+	{
+		if(offSetX == -backgroundImage1.width)
+		{
+			offSetX = 0;
+			cycleCount++;
+		}
+		
+		offSetX -= 1;
+		contextBackground.drawImage(backgroundImage1,0,0,backgroundImage1.width,backgroundImage1.height,offSetX,0,backgroundImage1.width,backgroundImage1.height);
+		contextBackground.drawImage(backgroundImage1,0,0,backgroundImage1.width,backgroundImage1.height,backgroundImage1.width + offSetX,0,backgroundImage1.width,backgroundImage1.height);
+	}
+	
+	function startSpawning()
+	{
+		randomNum = Math.floor(Math.random()*5) + 1;//Generates a random num from 1 to 5 for the random intervals
+		spawnInterval = setTimeout(function() //setTimeout means after x milliseconds do the function 
+										//but this works because inside the function I call startSpawning() again so its kinda like recursion
+		{	
+		spawnNumber = Math.floor(Math.random()*3);//Generates random number for both the spawn and which fruit to spawn
+		fruitNumber = Math.floor(Math.random()*8);
+	
+		fruitImage.src = fruits[fruitNumber];//Sets the source of the fruit image to the fruit that it chose from the random number
+		fruitList[numOfFruits] = new Fruit(spawns[spawnNumber].x,spawns[spawnNumber].y,fruitImage.src);
+		if(fruitNumber >= 4)
+		{
+			fruitList[numOfFruits].point = 1;
+		}
+		else
+		{
+			fruitList[numOfFruits].point = -1;
+		}
+		if(fruitNumber == 4)
+		{
+			fruitList[numOfFruits].banana = true;
+		}
+		numOfFruits++;
+		
+		//fruitImage.addEventListener("load",drawFruit,false);//Checks for when the image is loaded, then draw it on the spawn number
+		
+		
+		//randomNum = Math.floor(Math.random()*5) + 1;
+		startSpawning();//Recalls the whole function again so its a loop, RECURSION!!!!!!
+		},randomNum*1000);
+	}
+	
+	function setSpawns()
+	{
+		var temp_Width = canvasWidth-100;
+		var temp_Height = canvasHeight-150;
+	
+		for(var i=0;i < 3;i++)
+		{
+			spawns[i] = new Spawn(temp_Width,temp_Height);
+			temp_Height -= 200;
+		}
+	}
+	
+	function drawAllFruit()
+	{
+		clearFruitContext();
+		for(var i=0;i<numOfFruits;i++)
+		{
+			if(fruitList[i].visable == true)
+			{	contextFruit.drawImage(fruitList[i].icon,0,0,fruitImage.width,fruitImage.height,fruitList[i].x,fruitList[i].y,fruitImage.width,fruitImage.height);
+			//Jacob's changes to allow for not pressing keys and still picking up fruit.
+				otherSprite = fruitList[i];
+				if(collisionCandidate(fatmanAvatar,otherSprite))
+				{
+					if(tryAgain(fatmanAvatar,otherSprite))
+					{
+						collisionRoutine(fatmanAvatar,otherSprite);
+					}
+				}
+				
+			}
+		}
+	}
+	
+	function updateFruit()
+	{
+		for(var i=0;i<numOfFruits;i++)
+		{	
+			if(fruitList[i].x <0)
+			{
+				fruitList[i].visable = false;
+				//delete fruitList[i];
+			//	fruitList[i].x -= fruitList[i].speed;
+			}
+			fruitList[i].x -= fruitList[i].speed;
+		}
+	}
+	
+	function clearFruitContext()
+	{
+		contextFruit.clearRect(0,0,canvasWidth,canvasHeight);
+	}
+	
+	//animation function
+	function animateMid() {	
+		
+		clearInterval( animationInterval); 
+
+		//using the FrameTimer class, figures out how many ms it takes for one frame to process
+		//useful so our game runs similarly on both low end systems and high end
+		//because, you know, our game is so graphics intensive
+		var timer = new FrameTimer();
+        timer.tick();
+ 
+		//uses the SpriteSheet class and loads each frame into an array
+        var sprites = new SpriteSheet({
+            width: fatmanAvatar.width,
+            height: fatmanAvatar.height,
+            sprites: [
+                { name: 'pos_1' },
+                { name: 'pos_2', x: 0, y: 0 },
+                { name: 'pos_3', x: 1, y: 0 },
+				{ name: 'pos_4', x: 1, y: 0 },
+				{ name: 'pos_5', x: 1, y: 0 },
+				{ name: 'pos_6', x: 1, y: 0 },
+				{ name: 'pos_7', x: 1, y: 0 }
+            ]
+        });
+        //var ctx = document.getElementById('fruitLayer').getContext('2d');
+        
+		//sets up the animation
+		var runner = new Animation([
+            { sprite: 'pos_1', time: 0.03 },
+            { sprite: 'pos_2', time: 0.03 },
+            { sprite: 'pos_3', time: 0.03 },
+            { sprite: 'pos_4', time: 0.03 },
+			{ sprite: 'pos_5', time: 0.03 },
+			{ sprite: 'pos_6', time: 0.03 },
+			{ sprite: 'pos_7', time: 0.03 },
+			{ sprite: 'pos_6', time: 0.03 },
+			{ sprite: 'pos_5', time: 0.03 },
+			{ sprite: 'pos_4', time: 0.03 },
+			{ sprite: 'pos_3', time: 0.03 },
+			{ sprite: 'pos_2', time: 0.03 }
+        ], sprites);
+
+		//now we draw the running man frame by frame
+        animationInterval = setInterval(function(){
+            runner.animate(timer.getSeconds());
+            var frame = runner.getSprite();
+            
+			//had to fill in with black here so it would blend into background
+			//need to figure out a better way when we have an actual background
+			contextFatMan.clearRect(0,0,canvasWidth,canvasHeight);
+//			contextFatMan.fillRect(fatmanAvatar.x,fatmanAvatar.y,fatmanAvatar.width,fatmanAvatar.height);
+            contextFatMan.drawImage(fatmanAvatar.sprite, frame.x, frame.y, fatmanAvatar.width, fatmanAvatar.height, fatmanAvatar.x,fatmanAvatar.y, fatmanAvatar.width, fatmanAvatar.height);
+            timer.tick();
+        }, 1000/15);
+	}
+	
+	function animate() {	
+		
+		clearInterval( animationInterval); 
+		//using the FrameTimer class, figures out how many ms it takes for one frame to process
+		//useful so our game runs similarly on both low end systems and high end
+		//because, you know, our game is so graphics intensive
+		var timer = new FrameTimer();
+        timer.tick();
+ 
+		//uses the SpriteSheet class and loads each frame into an array
+        var sprites = new SpriteSheet({
+            width: fatmanAvatar.width,
+            height: fatmanAvatar.height,
+            sprites: [
+                { name: 'pos_1' },
+                { name: 'pos_2', x: 0, y: 0 },
+                { name: 'pos_3', x: 1, y: 0 },
+				{ name: 'pos_4', x: 1, y: 0 },
+				{ name: 'pos_5', x: 1, y: 0 },
+				{ name: 'pos_6', x: 1, y: 0 },
+				{ name: 'pos_7', x: 1, y: 0 }
+            ]
+        });
+        //var ctx = document.getElementById('fruitLayer').getContext('2d');
+        
+		//sets up the animation
+		var runner = new Animation([
+            { sprite: 'pos_1', time: 0.025 },
+            { sprite: 'pos_2', time: 0.025 },
+            { sprite: 'pos_3', time: 0.025 },
+            { sprite: 'pos_4', time: 0.025 },
+			{ sprite: 'pos_5', time: 0.025 },
+			{ sprite: 'pos_6', time: 0.025 },
+			{ sprite: 'pos_7', time: 0.025 }
+        ], sprites);
+
+		//now we draw the running man frame by frame
+        animationInterval = setInterval(function(){
+            runner.animate(timer.getSeconds());
+            var frame = runner.getSprite();
+            
+			//had to fill in with black here so it would blend into background
+			//need to figure out a better way when we have an actual background
+			contextFatMan.clearRect(0,0,canvasWidth,canvasHeight);
+//			contextFatMan.fillRect(fatmanAvatar.x,fatmanAvatar.y,fatmanAvatar.width,fatmanAvatar.height);
+            contextFatMan.drawImage(fatmanAvatar.sprite, frame.x, frame.y, fatmanAvatar.width, fatmanAvatar.height, fatmanAvatar.x,fatmanAvatar.y, fatmanAvatar.width, fatmanAvatar.height);
+            timer.tick();
+        }, 10);
+	}
+	
+	function animate() {	
+		
+		clearInterval( animationInterval); 
+		//using the FrameTimer class, figures out how many ms it takes for one frame to process
+		//useful so our game runs similarly on both low end systems and high end
+		//because, you know, our game is so graphics intensive
+		var timer = new FrameTimer();
+        timer.tick();
+ 
+		//uses the SpriteSheet class and loads each frame into an array
+        var sprites = new SpriteSheet({
+            width: fatmanAvatar.width,
+            height: fatmanAvatar.height,
+            sprites: [
+                { name: 'pos_1' },
+                { name: 'pos_2', x: 0, y: 0 },
+                { name: 'pos_3', x: 1, y: 0 },
+				{ name: 'pos_4', x: 1, y: 0 },
+				{ name: 'pos_5', x: 1, y: 0 },
+				{ name: 'pos_6', x: 1, y: 0 },
+				{ name: 'pos_7', x: 1, y: 0 }
+            ]
+        });
+        //var ctx = document.getElementById('fruitLayer').getContext('2d');
+        
+		//sets up the animation
+		var runner = new Animation([
+            { sprite: 'pos_1', time: 0.025 },
+            { sprite: 'pos_2', time: 0.025 },
+            { sprite: 'pos_3', time: 0.025 },
+            { sprite: 'pos_4', time: 0.025 },
+			{ sprite: 'pos_5', time: 0.025 },
+			{ sprite: 'pos_6', time: 0.025 },
+			{ sprite: 'pos_7', time: 0.025 }
+        ], sprites);
+
+		//now we draw the running man frame by frame
+        animationInterval = setInterval(function(){
+            runner.animate(timer.getSeconds());
+            var frame = runner.getSprite();
+            
+			//had to fill in with black here so it would blend into background
+			//need to figure out a better way when we have an actual background
+			contextFatMan.clearRect(0,0,canvasWidth,canvasHeight);
+//			contextFatMan.fillRect(fatmanAvatar.x,fatmanAvatar.y,fatmanAvatar.width,fatmanAvatar.height);
+            contextFatMan.drawImage(fatmanAvatar.sprite, frame.x, frame.y, fatmanAvatar.width, fatmanAvatar.height, fatmanAvatar.x,fatmanAvatar.y, fatmanAvatar.width, fatmanAvatar.height);
+            timer.tick();
+        }, 10);
+	}
+	
+	function keypress(event)
+	{
+		console.log(event);
+		
+		if(event.keyCode == 37) //Left movement
+		{
+			var i = 0;
+			 
+			var moveLeft = setInterval(function(){
+
+				fatmanAvatar.x -= 2;
+				drawLoop();
+				
+				if(i == 20 || fatmanAvatar.x <= 0)
+					clearInterval(moveLeft);
+				i = i + 1;
+			}, 6)
+		}
+		if(event.keyCode == 38) //Up Movement
+		{
+			fatmanAvatar.velocity = 25;	
+			var moveUp = setInterval(function(){
+				drawJump();
+				if(fatmanAvatar.y > fatmanAvatar.originalHeight){
+					fatmanAvatar.velocity = 0;
+					fatmanAvatar.y = fatmanAvatar.originalHeight;
+					clearInterval(moveUp);
+				}
+			}, 10);	
+		}
+		if(event.keyCode == 39) //Right Movement
+		{
+			var i = 0;
+			var moveRight = setInterval(function(){
+				
+				fatmanAvatar.x += 2;
+				drawLoop();
+				if(i == 20 || fatmanAvatar.x > 700)
+					clearInterval(moveRight);
+				i = i + 1;
+			}, 6)
+
+		}
+		if(event.keyCode == 40) // Down Key
+		{
+			fatmanAvatar.originalSprite = fatmanAvatar.sprite;
+			fatmanAvatar.originalheight = fatmanAvatar.height;
+			fatmanAvatar.originalWidth = fatmanAvatar.width;
+
+			var temp = new Image();
+			temp.src = 'rolling.png';
+			fatmanAvatar.sprite = temp;
+			fatmanAvatar.height = 90;
+			fatmanAvatar.width = 44;
+			fatmanAvatar.y = fatmanAvatar.y + 40;
+
+animateRoll();
+}
+		
+	}
+	
+	/*this function will check to see if the mainSprite can even be 
+	colliding with the otherSprite, usually this will be the
+	mainSprite is fatman and the otherSprite are the food*/
+	function collisionCandidate(mainSprite,otherSprite)
+	{
+		/*collisions CAN occur iff the mainSprite and otherSprite are
+		not equal to each other, both sprites are visable on the CRT
+		and the otherSprite hasn't been eaten yet*/
+		return(mainSprite != otherSprite && otherSprite.visable);
+	}
+	
+	/*this function checks to see if the sprites from collisionCandidate
+	did actually collide. This function is called iff collisionCandidate
+	returns true*/
+	/*to find corners of box, grab location of the picture,
+	the current location gives the top left corner, then use the
+	inputs .width and .height to find the other corners*/
+	function didCollide(mainSprite, otherSprite, context)
+	{
+		/*ALL OF THIS WILL BE USED TO FIND CORNERS FOR 
+		BOX OF THE FATMAN*/
+		var Left = mainSprite.x;
+		var Right = mainSprite.x + mainSprite.width;
+		var top = mainSprite.y;
+		var bottom = top + mainSprite.heigth;
+		var centerX = Left + mainSprite.width/2;
+		var centerY = top + mainSprite.height/2;
+		
+		//actually calculates if the collision occurs
+		return didFatManNomNom(Left, top, Right, bottom, centerX, 
+		centerY, otherSprite, context);
+	}
+	
+	function didFatManNomNom(left, top, right, bottom, centerX, 
+	centerY, otherSprite, context)
+	{
+		contextFruit.beginPath();
+		contextFruit.rect(otherSprite.x,otherSprite.y,
+		otherSprite.width, otherSprite.height);
+		
+		return contextFruit.isPointInPath(left, top)||
+		contextFruit.isPointInPath(right, top) ||
+		contextFruit.isPointInPath(centerX, centerY) ||
+		contextFruit.isPointInPath(left, bottom) ||
+		contextFruit.isPointInPath(right,bottom);
+	}
+	
+	/*this function is called iff a collision occurs
+	...name is self-explanitory*/
+	function collisionRoutine(mainSprite, otherSprite)
+	{
+		/*if(otherSprite.point < 0)
+		{
+			scream.play();
+		}
+		else
+		{
+			burp.play();
+		}*/
+		//clearMeterContext();
+		
+		if(fatmanAvatar.score > 0) //Positive score
+		{
+			if(otherSprite.point == 1)
+			{
+				console.log(1);
+				barWidth += 15;
+			}
+			else //Point = -1
+			{
+				console.log(2);
+				barWidth -= 15;
+			}
+		}
+		else if(fatmanAvatar.score == 0)
+		{
+			if(otherSprite.point == 1)
+			{
+				console.log(3);
+				barWidth += 15;
+			}
+			else
+			{
+				console.log(4);
+				startX -= 15;
+				barWidth += 15;
+			}
+		}
+		else //Negative score
+		{
+			if(otherSprite.point == 1)
+			{
+				console.log(5);
+				startX += 15;
+				barWidth -=15;
+			}
+			
+			else
+			{
+				console.log(6);
+				startX -= 15;
+				barWidth += 15;
+			}
+		}
+		
+		if(fatmanAvatar.score >= 5)
+		{
+			contextMeter.fillStyle = "green";
+		}
+		else if(fatmanAvatar.score > -5 && fatmanAvatar.score < 5)
+		{
+			contextMeter.fillStyle = "grey";
+		}
+		else
+		{
+			contextMeter.fillStyle = "red";
+		}
+		
+		clearMeterContext();
+		//contextMeter.rect(startX,startY,barWidth,20);
+		contextMeter.fillRect(startX,startY,barWidth,20);
+		//contextMeter.fillText(barWidth,startX + 100,startY);
+		//startY += 35;
+		
+		///////////////////////////////////////////////////////
+		
+		eat.play();
+		mainSprite.score += otherSprite.point;
+		
+		//now making routine for PBJTIME//
+		if(otherSprite.banana == true)
+		{
+			mainSprite.bananaCombo++;
+			if(mainSprite.bananaCombo==2)
+			{
+					pbjTime.play();
+					mainSprite.bananaCombo = 0;//resetting for next bananasong
+			}
+			else
+			{
+				mainSprite.bananaCombo = 0;
+			}
+		}
+		
+		
+		//end of routine for PBJTIME//
+		
+		
+		//mainSprite.eating = true;
+		otherSprite.visable = false;
+		//otherSprite.eaten = false;
+		mainSprite.eating = false;
+		contextScore.clearRect(0,0,canvasWidth,canvasHeight);
+		contextScore.font = "30pt Arial";
+		contextScore.fillStyle = "Black";
+		contextScore.fillText(fatmanAvatar.score,15,50);
+		
+		//contextMeter.clearRect(startX,startY,barWidth,20);
+		//clearMeterContext();
+	}
+	
+	/*Drawing Routine. This also calls the functions to check if a
+	collision has occured*/
+	function drawLoop()
+	{
+		contextFatMan.clearRect(0,0,canvasWidth,canvasHeight);
+		//contextFatMan.fillStyle = "black";
+		//contextFatMan.fillRect(0,0,canvasWidth,canvasHeight);
+		contextFatMan.drawImage(fatmanAvatar.sprite,0,0,fatmanAvatar.width,fatmanAvatar.height,fatmanAvatar.x,fatmanAvatar.y,fatmanAvatar.width,fatmanAvatar.height);
+		contextScore.clearRect(0,0,canvasWidth,canvasHeight);
+		contextScore.font = "30pt Arial";
+		contextScore.fillStyle = "Black";
+		contextScore.fillText(fatmanAvatar.score,15,50);		
+		animateMid();
+		//drawing loop for food
+		/*var foodDraw;
+		for (var j = 0; j<fruitList.length; j++)
+		{
+			foodDraw = fruitList[j];
+			if(foodDraw.visable == true)
+			{
+				contextFruit.drawImage(foodDraw.icon,
+				foodDraw.x,
+				foodDraw.y,
+				foodDraw.width,
+				foodDraw.height);
+			}
+		}*/
+		
+		var otherSprite;
+		for (var i = 0; i<numOfFruits; i++)
+		{
+			otherSprite = fruitList[i];
+			if(collisionCandidate(fatmanAvatar,otherSprite))
+			{
+				/*if(didCollide(fatmanAvatar,otherSprite))
+				{
+					collisionRoutine(fatmanAvatar,otherSprite);
+				}
+				else*/
+				{
+						if(tryAgain(fatmanAvatar,otherSprite))
+					{
+						collisionRoutine(fatmanAvatar,otherSprite);
+					}
+				}
+			}
+		}
+		
+	}
+	function drawJump(){
+		findSpeed();
+		// fatmanAvatar.y -=2;
+		// document.write(fatmanAvatar.velocity);
+		// document.write(" ");
+		drawLoop();
+	}
+	function findSpeed(){
+
+		var initialVelocity = fatmanAvatar.velocity;
+
+		var GRAVITY = -1;
+		var initialHeight = fatmanAvatar.originalHeight - fatmanAvatar.y;
+		// document.write("Initial Height: ");
+		// document.write( initialHeight);
+		// document.write(" ");
+		var time = .5;
+		var finalHeight = initialVelocity*time + 1/2 * GRAVITY * time * time;
+		// document.write( finalHeight);
+		// document.write(" ");
+
+
+		fatmanAvatar.y  = fatmanAvatar.originalHeight - finalHeight - initialHeight;
+		fatmanAvatar.velocity = initialVelocity + GRAVITY*time; 
+
+		if(fatmanAvatar.y < 0){
+			fatmanAvatar.y = 0;
+			fatmanAvatar.velocity = -.000001;
+
+		}
+
+	}
+	
+	function animateRoll() {
+clearInterval( animationInterval); 
+//using the FrameTimer class, figures out how many ms it takes for one frame to process
+//useful so our game runs similarly on both low end systems and high end
+//because, you know, our game is so graphics intensive
+var timer = new FrameTimer();
+timer.tick();
+//uses the SpriteSheet class and loads each frame into an array
+var sprites = new SpriteSheet({
+width: fatmanAvatar.width,
+height: fatmanAvatar.height,
+sprites: [
+{ name: 'pos_1' },
+{ name: 'pos_2', x: 0, y: 0 },
+{ name: 'pos_3', x: 1, y: 0 },
+{ name: 'pos_4', x: 1, y: 0 },
+{ name: 'pos_5', x: 1, y: 0 },
+{ name: 'pos_6', x: 1, y: 0 },
+{ name: 'pos_7', x: 1, y: 0 }
+]
+});
+//var ctx = document.getElementById('fruitLayer').getContext('2d');
+//sets up the animation
+var runner = new Animation([
+{ sprite: 'pos_1', time: 0.1 },
+{ sprite: 'pos_2', time: 0.11 },
+{ sprite: 'pos_3', time: 0.11 },
+{ sprite: 'pos_4', time: 0.1 },
+{ sprite: 'pos_5', time: 0.1 },
+{ sprite: 'pos_6', time: 0.1 },
+{ sprite: 'pos_7', time: 0.1 }
+], sprites);	
+i = 0;
+animationInterval = setInterval(function(){
+
+if(i == 75){
+fatmanAvatar.sprite = fatmanAvatar.originalSprite;
+fatmanAvatar.y = fatmanAvatar.originalHeight;
+fatmanAvatar.height = fatmanAvatar.originalheight;
+fatmanAvatar.width = fatmanAvatar.originalWidth;
+clearInterval(animationInterval);
+drawLoop();
+}
+runner.animate(timer.getSeconds());
+var frame = runner.getSprite();
+
+//had to fill in with black here so it would blend into background
+//need to figure out a better way when we have an actual background
+contextFatMan.clearRect(0,0,canvasWidth,canvasHeight);
+// contextFatMan.fillRect(fatmanAvatar.x,fatmanAvatar.y,fatmanAvatar.width,fatmanAvatar.height);
+contextFatMan.drawImage(fatmanAvatar.sprite, frame.x, frame.y, fatmanAvatar.width, fatmanAvatar.height, fatmanAvatar.x,fatmanAvatar.y, fatmanAvatar.width, fatmanAvatar.height);
+timer.tick();
+i = i + 1;
+}, 10);
+return 1;
+}
+
+</script>
+</body>
+
+<audio loop="loop" autoplay="autoplay">
+<source src="background music.mp3" />
+
+</html>
